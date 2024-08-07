@@ -1,0 +1,32 @@
+{
+  "name": "pico-bomber",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "A PicoStack 2.x game",
+  "main": "index.js",
+  "author": "Tony Ivanov <tony@decentlabse.se>",
+  "license": "AGPL-version-3",
+  "scripts": {
+    "dev": "esbuild --bundle ui.js --outfile=ui.build.js --servedir=. --format=esm",
+    "build": "esbuild --bundle index.js --outfile=../build/K.js --format=esm",
+    "test": "node test.js",
+    "debug": "node inspect test.js",
+    "types": "(rm *.ts || true) && tsc --skipLibCheck --noEmit --allowJs --checkJs --declaration --removeComments --lib es2022 --target es2022 --moduleResolution nodenext --module nodenext index.js",
+    "lint": "standard --fix"
+  },
+  "dependencies": {
+    "piconuro": "^1.0.1",
+    "picostack": "../../picostack",
+    "pure-random-number": "^3.2.1"
+  },
+  "devDependencies": {
+    "browserify": "^17.0.0",
+    "debug": "^4.3.6",
+    "esbuild": "^0.23.0",
+    "hyperswarm": "^4.8.1",
+    "memory-level": "^1.0.0",
+    "pixi.js": "^8.3.0",
+    "standard": "^17.1.0",
+    "tape": "^5.8.1"
+  }
+}
