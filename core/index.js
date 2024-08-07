@@ -33,7 +33,8 @@ export class Kernel extends SimpleKernel {
     if (!Array.isArray(moves)) throw new Error('Expected Array')
     if (moves.find(m => !~MOVES.indexOf(m))) throw new Error('Unknown Move')
     const branch = this.#feed
-    this.pmem.commitMoves(branch, moves, this._secret)
+    const p = await this.pmem.commitMoves(branch, moves, this._secret)
+    if (!p) branch.truncate(-1) // remove rejected block
   }
 
   async beginSwarm (swarm) {
@@ -41,18 +42,21 @@ export class Kernel extends SimpleKernel {
     this.#m56 = new Modem56(swarm)
     this.leaveSwarm = await this.#m56.join(topic, this.spawnWire.bind(this), true)
   }
-
 }
 
 class PlayerMemory extends Memory {
   initialValue = {
+    pk: null,
     name: 'Anonymous',
     dead: false, // Killed by CHAIN&|AUTHOR
+    date: -1,
     bombs: 1,
     flame: 3,
     speed: 4,
     x: -1,
-    y: -1
+    y: -1,
+    previous: { x: -1, y: -1 },
+    moves: [] // Last turn actions
   }
 
   idOf ({ CHAIN }) { return CHAIN } // TODO:picostore: make CHAIN default.
@@ -75,17 +79,28 @@ class PlayerMemory extends Memory {
         const y = block.sig[2] % WORLD_SIZE
         if (isWall(x, y)) x = (x + 1) % WORLD_SIZE
 
-        return {...value, name, x, y }
+        return { ...value, pk: AUTHOR, name, x, y }
       }
       case 'turn': {
         const { moves } = payload
         if (!Array.isArray(moves)) return reject('Expected Array')
         if (moves.find(m => !~MOVES.indexOf(m))) return reject('Unknown Move')
-        const p = JSON.parse(JSON.stringify(value))
+        const p = {
+          ...value,
+          date,
+          previous: { x: value.x, y: value.y },
+          moves
+        }
+        let nBombs = p.bombs
         let distance = 0
         for (const move of moves) {
           if (move === A) {
-            signal('spawn-bomb', { x: p.x, y: p.y, date })
+            if (!nBombs) return reject('NotEnoughBombs')
+            // OK how did i imagine this was supposed to work now?
+            signal('spawn-bomb', {
+              x: p.x, y: p.y, date, flame: p.flame
+            })
+            nBombs--
             continue
           }
 
@@ -112,11 +127,11 @@ class PlayerMemory extends Memory {
   }
 
   async spawn (branch, name, secret) {
-    this.createBlock(branch, { type: 'spawn', name }, secret)
+    return this.createBlock(branch, { type: 'spawn', name }, secret)
   }
 
   async commitMoves (branch, moves, secret) {
-    this.createBlock(branch, { type: 'turn', moves }, secret)
+    return this.createBlock(branch, { type: 'turn', moves }, secret)
   }
 }
 
@@ -135,4 +150,5 @@ export async function boot (swarm, cb) {
 }
 
 // simple gridlike level design
-export function isWall(x, y) { return x % 2 && y % 2 }
+export function isWall (x, y) { return x % 2 && y % 2 }
+export function whatRound (time = Date.now()) { return Math.floor(time / 10000) }

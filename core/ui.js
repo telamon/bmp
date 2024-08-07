@@ -1,4 +1,5 @@
-import { boot, WORLD_SIZE, isWall } from './index.js'
+import { boot, WORLD_SIZE, isWall, Kernel, A, L, R, U, D } from './index.js'
+import { settle } from 'piconuro'
 import {
   Application,
   Graphics,
@@ -15,11 +16,20 @@ let app = null
 /** @type {Graphics} */
 let world = null
 
-let SCENE = 'title';
+/** @type {Kernel} */
+let kernel = null
+
+let SCENE = 'title'
+
+/** @type {Container} */
+let player = null
+
+/** @type {Record<string, Container>} */
+const players = {}
 
 export async function main (Hyperswarm) {
   console.log('Booting up')
-  const kernel = await boot(Hyperswarm)
+  kernel = await boot(Hyperswarm)
   app = new Application()
   await app.init({ width: window.innerWidth, height: window.innerHeight })
   document.body.appendChild(app.canvas)
@@ -39,6 +49,7 @@ export async function main (Hyperswarm) {
       .lineTo(WORLD_SIZE * TILE_SIZE, i * TILE_SIZE)
       .stroke()
   }
+
   for (let y = 0; y < WORLD_SIZE; y++) {
     for (let x = 0; x < WORLD_SIZE; x++) {
       if (isWall(x, y)) {
@@ -53,34 +64,35 @@ export async function main (Hyperswarm) {
   app.stage.addChild(world)
   app.stage.addChild(await renderTitleScreen())
 
-  const unsub = kernel.pmem.sub(onPlayersUpdated)
+  const unsub = settle(s => kernel.pmem.sub(s))(onPlayersUpdated)
 }
-/** @type {Record<string, Container>} */
-const players = {}
+
 function onPlayersUpdated (state) {
   let info = ''
   const processed = []
-  for (const pk in state) {
-    const data = state[pk]
-    if (!(pk in players)) {
+  for (const chain in state) {
+    console.log(chain, kernel.pk)
+    const data = state[chain]
+    if (data.pk === kernel.pk) continue // Don't do player here.
+    if (!(chain in players)) {
       const c = new Container()
       const s = new Text({ // Placeholder sprite
         text: '🏃‍♂️',
-        sytle: { fontSize: TILE_SIZE * 3 }
+        style: { fontSize: TILE_SIZE }
       })
       c.addChild(s)
       const label = new Text({ text: data.name, style: { fontSize: 16 } })
       label.y = TILE_SIZE - label.height
       // label.x = TILE_SIZE - label.width / 2
       c.addChild(label)
-      players[pk] = c
+      players[chain] = c
       world.addChild(c)
     }
-    const player = players[pk]
+    const player = players[chain]
     // Update position
     player.position.x = data.x * TILE_SIZE
     player.position.y = data.y * TILE_SIZE
-    processed.push(pk)
+    processed.push(chain)
     info += `${data.name}: ${data.x}, ${data.y} |`
   }
   console.log(info)
@@ -107,7 +119,7 @@ async function renderTitleScreen () {
   title.y = 100
 
   const t2 = new Text({
-    text: 'Press start to play',
+    text: 'Input name and hit enter',
     style: {
       fontFamily: 'monospace',
       fontSize: 32,
@@ -125,7 +137,65 @@ async function renderTitleScreen () {
   document.body.appendChild(el)
   el.style.top = (app.canvas.height / 2) + 'px'
   el.style.left = (app.canvas.width / 2 - el.getBoundingClientRect().width / 2) + 'px'
+  el.addEventListener('keyup', ev => {
+    if (ev.key === 'Enter') {
+      const name = el.value.trim() || `Anonymous${Math.floor(Math.random() * 255)}`
+      kernel.spawn(name)
+        .then(() => {
+          app.stage.removeChild(container) // remove self
+          document.body.removeChild(el)
+          setupPlay()
+        })
+        .catch(console.error)
+    }
+  })
   return container
+}
+
+/** @param {KeyboardEvent} ev
+  * @return {A|L|R|U|P|'Enter'} */
+function keyToAction (ev) {
+  switch (ev.key) {
+    case 'ArrowLeft':
+    case 'a':
+      return L
+    case 'ArrowRight':
+    case 'd':
+      return R
+    case 'ArrowUp':
+    case 'w':
+      return U
+    case 'ArrowDown':
+    case 's':
+      return D
+    case ' ': // space/bomb
+      return A
+    case 'Enter': return 'Enter'
+  }
+}
+
+function setupPlay () {
+  SCENE = 'play'
+  player = new Container()
+  player.label = 'player'
+  const s = new Text({ text: '🚶', style: { fontSize: TILE_SIZE } })
+  player.addChild(s)
+  world.addChild(player)
+
+  let movesBuffer = []
+  document.body.addEventListener('keydown', async ev => {
+    const move = keyToAction(ev)
+    if (!move) return
+
+    if (move === 'Enter') {
+      const m = movesBuffer
+      movesBuffer = []
+      await kernel.commitMoves(m)
+      return
+    }
+
+    movesBuffer.push(move)
+  })
 }
 
 let gTime = 0
