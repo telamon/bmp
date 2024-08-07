@@ -1,14 +1,15 @@
+import { Feed } from 'picofeed'
 import { Memory, SimpleKernel } from 'picostack'
 import { Modem56 } from 'picostack/modem56.js'
 import { MemoryLevel } from 'memory-level'
 export const WORLD_SIZE = 16
 const MEM_PLAYERS = 'p'
-const MOVES = Array.from(new Array(5)).map((_, n) => n)
-export const [L, R, U, D, A] = MOVES
+const MOVES = [1, 2, 3, 4, 5]
+export const [A, L, R, U, D] = MOVES
 
 export class Kernel extends SimpleKernel {
   #m56 = null
-
+  #feed = new Feed()
   constructor (db) {
     super(db)
     this.store.repo.allowDetached = true // TODO:picostore: this obscure line will be default in final release
@@ -19,6 +20,24 @@ export class Kernel extends SimpleKernel {
     const topic = 'pbomb:v0/global'
     this.#m56 = new Modem56(swarm)
     this.leaveSwarm = await this.#m56.join(topic, this.spawnWire.bind(this), true)
+  }
+  /** @type {PlayerMemory} */
+  get pmem () { return this.store.roots[MEM_PLAYERS] }
+
+  async spawn (name) {
+    const branch = this.#feed
+    await this.pmem.spawn(branch, name, this._secret)
+  }
+
+  async nextTurn () {
+    return this.pmem.readState(this.pk)
+  }
+
+  async commitMoves (moves) {
+    if (!Array.isArray(moves)) throw new Error('Expected Array')
+    if (moves.find(m => !~MOVES.indexOf(m))) throw new Error('Unknown Move')
+    const branch = this.#feed
+    this.pmem.commitMoves(branch, moves, this._secret)
   }
 }
 
@@ -37,7 +56,7 @@ class PlayerMemory extends Memory {
 
   /** @type {import('@telamon/picostore').ComputeFunction} */
   async compute (value, ctx) {
-    const { payload, reject, lookup, AUTHOR, block, index } = ctx
+    const { payload, reject, lookup, AUTHOR, block, index, signal, date } = ctx
 
     const { type } = payload
     switch (type) {
@@ -55,11 +74,46 @@ class PlayerMemory extends Memory {
 
         return {...value, name, x, y }
       }
+      case 'turn': {
+        const { moves } = payload
+        if (!Array.isArray(moves)) return reject('Expected Array')
+        if (moves.find(m => !~MOVES.indexOf(m))) return reject('Unknown Move')
+        const p = JSON.parse(JSON.stringify(value))
+        let distance = 0
+        for (const move of moves) {
+          if (move === A) {
+            signal('spawn-bomb', { x: p.x, y: p.y, date })
+            continue
+          }
+
+          if (distance > p.speed) return reject('Speedhack')
+          let x = p.x
+          let y = p.y
+
+          if (move === U) y--
+          else if (move === D) y++
+          else if (move === L) x--
+          else if (move === R) x++
+          else throw new Error('unreachable')
+          if ( // Collision detection
+            !isWall(x, y) &&
+            x >= 0 && x < WORLD_SIZE &&
+            y >= 0 && y < WORLD_SIZE
+          ) { p.x = x; p.y = y }
+          distance++
+        }
+        return p
+      }
+      default: return reject(`Unknown block: ${type}`)
     }
   }
 
   async spawn (branch, name, secret) {
     this.createBlock(branch, { type: 'spawn', name }, secret)
+  }
+
+  async commitMoves (branch, moves, secret) {
+    this.createBlock(branch, { type: 'turn', moves }, secret)
   }
 }
 

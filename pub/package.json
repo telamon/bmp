@@ -7,8 +7,8 @@
     "type": "desktop",
     "gui": {
       "backgroundColor": "#1F2430",
-      "height": 648,
-      "width": 1152
+      "height": 640,
+      "width": 640 
     }
   },
   "license": "AGPL-version-3",

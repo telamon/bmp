@@ -2,7 +2,39 @@
 <html>
   <head>
     <title>PicoBomber</title>
-    <script type="module" src="./ui.build.js"></script>
+    <script type="module" src="./boot.js"></script>
+<style>
+#bar {
+  /*backdrop-filter: blur(64px); */
+  -webkit-app-region: drag;
+  padding: 0;
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  color: #B0D944;
+  white-space: nowrap;
+  box-sizing: border-box;
+  position: fixed;
+  z-index: 100;
+  width: 100%;
+  left: 0;
+  top: 0;
+}
+
+#bar:hover {
+  outline: #B0D944;
+}
+
+pear-ctrl {
+  margin-top: 9px;
+}
+
+pear-ctrl[data-platform="darwin"] {
+  margin-top: 16px;
+  margin-left: 8px;
+}
+</style>
   </head>
-  <body></body>
+  <body>
+    <nav id="bar"><pear-ctrl></pear-ctrl></nav>
+  </body>
 </html>
