@@ -2,7 +2,7 @@ import { Feed } from 'picofeed'
 import { Memory, SimpleKernel } from 'picostack'
 import { Modem56 } from 'picostack/modem56.js'
 import { MemoryLevel } from 'memory-level'
-export const WORLD_SIZE = 16
+export const WORLD_SIZE = 9
 const MEM_PLAYERS = 'p'
 const MOVES = [1, 2, 3, 4, 5]
 export const [A, L, R, U, D] = MOVES
@@ -16,12 +16,8 @@ export class Kernel extends SimpleKernel {
     this.store.register(MEM_PLAYERS, PlayerMemory)
   }
 
-  async beginSwarm (swarm) {
-    const topic = 'pbomb:v0/global'
-    this.#m56 = new Modem56(swarm)
-    this.leaveSwarm = await this.#m56.join(topic, this.spawnWire.bind(this), true)
-  }
-  /** @type {PlayerMemory} */
+  /** TODO: export a convenience method in picostore to locate memoryslices
+    * @type {PlayerMemory} */
   get pmem () { return this.store.roots[MEM_PLAYERS] }
 
   async spawn (name) {
@@ -39,6 +35,13 @@ export class Kernel extends SimpleKernel {
     const branch = this.#feed
     this.pmem.commitMoves(branch, moves, this._secret)
   }
+
+  async beginSwarm (swarm) {
+    const topic = 'pbomb:v0/global'
+    this.#m56 = new Modem56(swarm)
+    this.leaveSwarm = await this.#m56.join(topic, this.spawnWire.bind(this), true)
+  }
+
 }
 
 class PlayerMemory extends Memory {

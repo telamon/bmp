@@ -17,14 +17,14 @@ async function spawnBot (name = 'robot') {
     moves.splice(Math.floor(Math.random() * moves.length), -1, A)
     console.info(name, 'moves:', moves)
     await k.commitMoves(moves)
-    await sleep(3000)
+    await sleep(3000 + Math.random() * 6000)
   }
 }
 
 async function main () {
-  const N = 7
+  const N = 15
   const bots = []
-  for (let i = 0; i < N; i++) bots.push(spawnBot(`BOBO${i}`))
+  for (let i = 0; i < N; i++) bots.push(spawnBot(`ROB${i}`))
   return await Promise.all(bots)
 }
 
