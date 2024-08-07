@@ -1,0 +1,21 @@
+{
+  "name": "bmp",
+  "main": "index.html",
+  "type": "module",
+  "pear": {
+    "name": "bmp",
+    "type": "desktop",
+    "gui": {
+      "backgroundColor": "#1F2430",
+      "height": 648,
+      "width": 1152
+    }
+  },
+  "license": "AGPL-version-3",
+  "scripts": {
+    "dev": "pear dev"
+  },
+  "dependencies": {
+    "hyperswarm": "^4.8.2"
+  }
+}

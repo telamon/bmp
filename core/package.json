@@ -7,8 +7,8 @@
   "author": "Tony Ivanov <tony@decentlabse.se>",
   "license": "AGPL-version-3",
   "scripts": {
-    "dev": "esbuild --bundle ui.js --outfile=ui.build.js --servedir=. --format=esm",
-    "build": "esbuild --bundle index.js --outfile=../build/K.js --format=esm",
+    "dev": "esbuild --bundle ui.js --outfile=../pub/ui.build.js --format=esm --watch",
+    "build": "esbuild --bundle ui.js --outfile=../pub/ui.build.js --format=esm",
     "test": "node test.js",
     "debug": "node inspect test.js",
     "types": "(rm *.ts || true) && tsc --skipLibCheck --noEmit --allowJs --checkJs --declaration --removeComments --lib es2022 --target es2022 --moduleResolution nodenext --module nodenext index.js",
@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "piconuro": "^1.0.1",
-    "picostack": "../../picostack",
+    "picostack": "^2.0.2",
     "pure-random-number": "^3.2.1"
   },
   "devDependencies": {

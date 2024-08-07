@@ -59,25 +59,32 @@ async function renderTitleScreen () {
   container.label = 'scene:title'
 
   const title = new BitmapText({
-    text: 'InfinityBomber',
+    text: 'InfinityBomber\n💣',
     style: { fontSize: 72, align: 'center' }
   })
   container.addChild(title)
   title.x = app.canvas.width / 2 - title.width / 2
   title.y = 100
-  /** @type{import('pixi.js).TextOptions} */
-  const o = {
-    text: 'bob'
-  }
+
   const t2 = new Text({
-    text: 'Press play on start',
+    text: 'Press start to play',
     style: {
       fontFamily: 'monospace',
-      size: 72,
-      fontColor: '#f00fe0'
+      fontSize: 32,
+      fill: 'white'
     }
   })
   container.addChild(t2)
+  t2.x = app.canvas.width / 2 - t2.width / 2
+  t2.y = app.canvas.height - t2.height - 50
+  const el = document.createElement('input')
+  el.type = 'text'
+  el.placeholder = 'Name'
+  el.style.position = 'absolute'
+  el.style.padding = "10px 10px"
+  document.body.appendChild(el)
+  el.style.top = (app.canvas.height / 2) + 'px'
+  el.style.left = (app.canvas.width / 2 - el.getBoundingClientRect().width / 2) + 'px'
   return container
 }
 
@@ -87,8 +94,11 @@ function loop (ticker) {
   const { deltaTime } = ticker
   gTime += deltaTime
   // console.log('processing', ticker.deltaTime)
-  world.position.x = 50 * Math.sin(gTime * 0.01)
-  world.position.y = 50 * Math.cos(gTime * 0.01)
+  const dim = (WORLD_SIZE * TILE_SIZE)
+  world.position.x = (world.position.x - deltaTime) % (TILE_SIZE * 2)
+  world.position.y = (world.position.y - deltaTime) % (TILE_SIZE * 2)
+  // world.position.x = (1 + Math.sin(gTime * 0.01) / 2) * -50
+  // world.position.y = (1 + Math.sin(gTime * 0.01) / 2) * dim
   // world.scale.x = world.scale.y = Math.min(1, Math.max(Math.cos(gTime * 0.01)), 0.3)
 }
 
