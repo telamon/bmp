@@ -97,6 +97,10 @@ class PlayerMemory extends Memory {
           if (move === A) {
             if (!nBombs) return reject('NotEnoughBombs')
             // OK how did i imagine this was supposed to work now?
+            // 1. ... I need to index bombs + draw them on screen.
+            // 2. Set a timer for blast (picostore dosen't have custom timers??)
+            // 3. Garbage collect bombs index + mark any players hit by blast as dead
+            // 4. Garbage collect players
             signal('spawn-bomb', {
               x: p.x, y: p.y, date, flame: p.flame
             })
