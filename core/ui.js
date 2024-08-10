@@ -1,4 +1,5 @@
 import { boot, WORLD_SIZE, isWall, Kernel, A, L, R, U, D } from './index.js'
+import { unpromise } from 'piconet'
 import { settle } from 'piconuro'
 import {
   Application,
@@ -31,7 +32,8 @@ export async function main (Hyperswarm) {
   console.log('Booting up')
   kernel = await boot(Hyperswarm)
   app = new Application()
-  await app.init({ width: window.innerWidth, height: window.innerHeight })
+  // await app.init({ width: window.innerWidth, height: window.innerHeight })
+  await app.init({ width: WORLD_SIZE * TILE_SIZE, height: WORLD_SIZE * TILE_SIZE })
   document.body.appendChild(app.canvas)
   app.ticker.add(loop)
   world = new Container()
@@ -63,15 +65,15 @@ export async function main (Hyperswarm) {
   world.addChild(plane)
   app.stage.addChild(world)
   app.stage.addChild(await renderTitleScreen())
-
   const unsub = settle(s => kernel.pmem.sub(s))(onPlayersUpdated)
 }
+/** @type {Record<String, number>} */
+const animated = {}
 
 function onPlayersUpdated (state) {
-  let info = ''
   const processed = []
   for (const chain in state) {
-    console.log(chain, kernel.pk)
+    // console.log(chain, kernel.pk)
     const data = state[chain]
     if (data.pk === kernel.pk) continue // Don't do player here.
     if (!(chain in players)) {
@@ -89,13 +91,29 @@ function onPlayersUpdated (state) {
       world.addChild(c)
     }
     const player = players[chain]
-    // Update position
-    player.position.x = data.x * TILE_SIZE
-    player.position.y = data.y * TILE_SIZE
     processed.push(chain)
-    info += `${data.name}: ${data.x}, ${data.y} |`
+
+    // Animate position if not updated
+    if ((animated[chain] || 0) < data.date) {
+      animated[chain] = data.date
+      player.position.x = data.previous.x * TILE_SIZE
+      player.position.y = data.previous.y * TILE_SIZE
+      data.moves.reduce(
+        (p, move) => p.then(pos => {
+          if (move === L) return tween(pos, 'x', pos.x - 1 * TILE_SIZE)
+          if (move === R) return tween(pos, 'x', pos.x + 1 * TILE_SIZE)
+          if (move === U) return tween(pos, 'y', pos.y - 1 * TILE_SIZE)
+          if (move === D) return tween(pos, 'y', pos.y + 1 * TILE_SIZE)
+          return Promise.resolve(pos)
+        }),
+        Promise.resolve(player.position)
+      ).finally(() => {
+        player.position.x = data.x * TILE_SIZE
+        player.position.y = data.y * TILE_SIZE
+      })
+    }
   }
-  console.log(info)
+  // console.log(info)
 
   // gc
   const gone = Object.keys(players).filter(k => !~processed.indexOf(k))
@@ -174,6 +192,20 @@ function keyToAction (ev) {
   }
 }
 
+async function tween(obj, prop, targetValue, speed = 10) {
+  const [p, resolve] = unpromise()
+  const v = obj[prop]
+  const diff = targetValue - v
+  let progress = 0
+  function interpolate ({ deltaTime }) {
+    progress += deltaTime
+    obj[prop] = v + diff * Math.min(progress / speed, 1)
+    if (progress / speed >= 1) resolve(obj)
+  }
+  app.ticker.add(interpolate)
+  return p.finally(() => app.ticker.remove(interpolate))
+}
+
 function setupPlay () {
   SCENE = 'play'
   player = new Container()
@@ -193,7 +225,10 @@ function setupPlay () {
       await kernel.commitMoves(m)
       return
     }
-
+    if (move === R) tween(player.position, 'x', player.position.x + TILE_SIZE)
+    if (move === L) tween(player.position, 'x', player.position.x - TILE_SIZE)
+    if (move === D) tween(player.position, 'y', player.position.y + TILE_SIZE)
+    if (move === U) tween(player.position, 'y', player.position.y - TILE_SIZE)
     movesBuffer.push(move)
   })
 }
